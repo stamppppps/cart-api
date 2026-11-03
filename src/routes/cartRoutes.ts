@@ -21,6 +21,17 @@ import {
 
 const router = Router();
 
+// แปลง Order ID เป็นรูปแบบ ORD-000001
+function formatOrderId(orderId: number | string): string {
+  const numericId = Number(orderId);
+
+  if (!Number.isSafeInteger(numericId) || numericId <= 0) {
+    throw new Error("INVALID_ORDER_ID");
+  }
+
+  return `ORD-${String(numericId).padStart(6, "0")}`;
+}
+
 // ============================
 // ADD ITEM TO CART
 // POST /cart/items
@@ -1085,30 +1096,29 @@ router.post(
           }
         });
       }
-
-      // 18. ส่งผลลัพธ์ Checkout กลับ
-      return res.status(201).json({
-        message: "Checkout successful",
-        order: {
-          orderId,
-          status: "PENDING_PAYMENT",
-          subtotal,
-          discount,
-          shippingFee,
-          total,
-          zone,
-          speed,
-          couponCode: couponCodeUsed
-        },
-        ...(discountResult.couponRemoved
-          ? {
-              notice: {
-                code: "COUPON_NOT_APPLICABLE",
-                message: "คูปองไม่สามารถใช้กับคำสั่งซื้อนี้"
-              }
-            }
-          : {})
-      });
+// 18. ส่งผลลัพธ์ Checkout กลับ
+return res.status(201).json({
+  message: "Checkout successful",
+  order: {
+    orderId: formatOrderId(orderId),
+    status: "PENDING_PAYMENT",
+    subtotal,
+    discount,
+    shippingFee,
+    total,
+    zone,
+    speed,
+    couponCode: couponCodeUsed
+  },
+  ...(discountResult.couponRemoved
+    ? {
+        notice: {
+          code: "COUPON_NOT_APPLICABLE",
+          message: "คูปองไม่สามารถใช้กับคำสั่งซื้อนี้"
+        }
+      }
+    : {})
+});
 
     } catch (error) {
       console.error("CHECKOUT ERROR:", error);
