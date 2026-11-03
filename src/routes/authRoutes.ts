@@ -17,47 +17,99 @@ router.post("/login", async (req, res) => {
     if (!username || !password) {
       return res.status(400).json({
         error: {
-          code: "AUTH_INVALID_CREDENTIALS",
-          message: "Username and password are required"
+          code: "AUTH_REQUIRED",
+          message: "AUTH_REQUIRED"
         }
       });
     }
 
+    // 1. ค้นหาผู้ใช้
     const { data: user, error } = await supabase
       .from("users")
       .select("user_id, username, password, role, member_tier")
       .eq("username", username)
-      .single();
+      .maybeSingle();
 
-    if (error || !user) {
-      return res.status(401).json({
+    if (error) {
+      console.error("GET USER ERROR:", error);
+
+      return res.status(500).json({
         error: {
-          code: "AUTH_INVALID_CREDENTIALS",
-          message: "Invalid username or password"
+          code: "AUTH_REQUIRED",
+          message: "AUTH_REQUIRED"
         }
       });
     }
 
-    if (user.password !== password) {
+    if (!user || user.password !== password) {
       return res.status(401).json({
         error: {
-          code: "AUTH_INVALID_CREDENTIALS",
-          message: "Invalid username or password"
+          code: "AUTH_REQUIRED",
+          message: "AUTH_REQUIRED"
         }
       });
     }
 
+    // 2. ตรวจสอบ Role
     const role = user.role.toLowerCase();
 
     if (role !== "customer" && role !== "admin") {
       return res.status(403).json({
         error: {
-          code: "AUTH_INVALID_ROLE",
-          message: "Invalid user role"
+          code: "AUTH_REQUIRED",
+          message: "AUTH_REQUIRED"
         }
       });
     }
 
+    // 3. สร้าง Cart อัตโนมัติสำหรับ Customer
+    if (role === "customer") {
+      const { data: existingCart, error: cartError } = await supabase
+        .from("carts")
+        .select("cart_id, user_id")
+        .eq("user_id", user.user_id)
+        .maybeSingle();
+
+      if (cartError) {
+        console.error("CHECK CART ERROR:", cartError);
+
+        return res.status(500).json({
+          error: {
+            code: "AUTH_REQUIRED",
+            message: "AUTH_REQUIRED"
+          }
+        });
+      }
+
+      // ถ้ายังไม่มี Cart ให้สร้างใหม่
+      if (!existingCart) {
+        const { data: newCart, error: createCartError } = await supabase
+          .from("carts")
+          .insert({
+            user_id: user.user_id,
+            stage: "CART"
+          })
+          .select("cart_id, user_id")
+          .single();
+
+        if (createCartError || !newCart) {
+          console.error("CREATE CART ERROR:", createCartError);
+
+          return res.status(500).json({
+            error: {
+              code: "AUTH_REQUIRED",
+              message: "AUTH_REQUIRED"
+            }
+          });
+        }
+
+        console.log("NEW CART CREATED:", newCart);
+      } else {
+        console.log("EXISTING CART FOUND:", existingCart);
+      }
+    }
+
+    // 4. สร้าง JWT
     const token = jwt.sign(
       {
         user_id: user.user_id,
@@ -70,17 +122,18 @@ router.post("/login", async (req, res) => {
       }
     );
 
+    // 5. ส่งข้อมูลกลับ
     if (role === "customer") {
       return res.status(200).json({
-        token: token,
-        role: role,
+        token,
+        role,
         memberTier: user.member_tier
       });
     }
 
     return res.status(200).json({
-      token: token,
-      role: role
+      token,
+      role
     });
 
   } catch (error) {
@@ -88,8 +141,8 @@ router.post("/login", async (req, res) => {
 
     return res.status(500).json({
       error: {
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Internal server error"
+        code: "AUTH_REQUIRED",
+        message: "AUTH_REQUIRED"
       }
     });
   }
