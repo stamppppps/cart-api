@@ -3,21 +3,21 @@ import { Router } from "express";
 import { supabase } from "../config/supabase.js";
 
 import {
-  authenticateToken,
-  authorizeRole
+    authenticateToken,
+    authorizeRole
 } from "../middleware/authMiddleware.js";
 
 import {
-  isProductAvailable,
-  validateQuantityChange,
-  calculateSubtotal,
-  calculateTotalWeight,
-  calculateDiscount,
-  classifyWeight,
-  calculateShippingFee,
-  calculateNetTotal,
-  validateCheckout
-} from "../utils/cartValidation.js";
+    calculateDiscount,
+    calculateNetTotal,
+    calculateShippingFee,
+    calculateSubtotal,
+    calculateTotalWeight,
+    classifyWeight,
+    isProductAvailable,
+    validateCheckout,
+    validateQuantityChange
+} from "../utils/pureFunctions.js";
 
 const router = Router();
 
