@@ -28,43 +28,69 @@ export const authenticateToken = (
 ) => {
   const authHeader = req.headers.authorization;
 
-  // ตรวจสอบว่ามี Token หรือไม่
-if (!authHeader) {
-  return res.status(401).json({
-    error: {
-      code: "AUTH_REQUIRED",
-      message: "AUTH_REQUIRED"
-    }
-  });
-}
-
-  // ตรวจสอบรูปแบบ Bearer Token
-  const parts = authHeader.split(" ");
-
-  if (parts.length !== 2 || parts[0] !== "Bearer" || !parts[1]) {
+  // 1. ตรวจสอบว่ามี Authorization Header หรือไม่
+  if (!authHeader) {
     return res.status(401).json({
-      message: "Invalid authorization format"
+      error: {
+        code: "AUTH_REQUIRED",
+        message: "AUTH_REQUIRED"
+      }
+    });
+  }
+
+  // 2. ตรวจสอบรูปแบบ Bearer Token
+  const parts = authHeader.trim().split(/\s+/);
+
+  if (
+    parts.length !== 2 ||
+    parts[0] !== "Bearer" ||
+    !parts[1]
+  ) {
+    return res.status(401).json({
+      error: {
+        code: "AUTH_REQUIRED",
+        message: "AUTH_REQUIRED"
+      }
     });
   }
 
   const token = parts[1];
 
   try {
-    // ตรวจสอบ JWT
+    // 3. ตรวจสอบ JWT
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    // เก็บข้อมูล User ไว้ใน Request
-    req.user = decoded as {
-      user_id: number;
-      username: string;
-      role: string;
+    // 4. ตรวจสอบข้อมูลภายใน Token
+    if (
+      typeof decoded === "string" ||
+      typeof decoded.user_id !== "number" ||
+      typeof decoded.username !== "string" ||
+      typeof decoded.role !== "string"
+    ) {
+      return res.status(401).json({
+        error: {
+          code: "AUTH_REQUIRED",
+          message: "AUTH_REQUIRED"
+        }
+      });
+    }
+
+    // 5. เก็บข้อมูล User ไว้ใน Request
+    req.user = {
+      user_id: decoded.user_id,
+      username: decoded.username,
+      role: decoded.role.toLowerCase()
     };
 
     return next();
 
-  } catch {
+  } catch (error) {
+    // Token ไม่ถูกต้องหรือหมดอายุ
     return res.status(401).json({
-      message: "Invalid or expired token"
+      error: {
+        code: "AUTH_REQUIRED",
+        message: "AUTH_REQUIRED"
+      }
     });
   }
 };
@@ -81,24 +107,32 @@ export const authorizeRole = (...allowedRoles: string[]) => {
     next: NextFunction
   ) => {
 
-    // ต้องผ่าน Authentication ก่อน
+    // 1. ต้องผ่าน Authentication ก่อน
     if (!req.user) {
       return res.status(401).json({
-        message: "Authentication required"
+        error: {
+          code: "AUTH_REQUIRED",
+          message: "AUTH_REQUIRED"
+        }
       });
     }
 
-    // ตรวจสอบ Role
+    // 2. ตรวจสอบ Role
     const userRole = req.user.role.toLowerCase();
 
-   if (!allowedRoles.map(role => role.toLowerCase()).includes(userRole)) {
-  return res.status(403).json({
-    error: {
-      code: "AUTH_FORBIDDEN",
-      message: "You do not have permission to access this resource"
+    const permittedRoles = allowedRoles.map((role) =>
+      role.toLowerCase()
+    );
+
+    if (!permittedRoles.includes(userRole)) {
+      return res.status(403).json({
+        error: {
+          code: "AUTH_FORBIDDEN",
+          message: "AUTH_FORBIDDEN"
+        }
+      });
     }
-  });
-}
+
     return next();
   };
 };

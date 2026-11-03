@@ -4,12 +4,19 @@ import type { Response } from "express";
 
 import { supabase } from "../config/supabase.js";
 import {
+  formatOrderId,
+  parseOrderId
+} from "../utils/orderId.js";
+
+import {
   authenticateToken,
   authorizeRole,
   type AuthRequest
 } from "../middleware/authMiddleware.js";
 
 const router = Router();
+
+
 
 // =====================================
 // GET /orders
@@ -60,7 +67,10 @@ router.get(
       }
 
       return res.status(200).json({
-        orders: data ?? []
+        orders: (data ?? []).map((order) => ({
+          ...order,
+          order_id: formatOrderId(order.order_id)
+        }))
       });
 
     } catch (error) {
@@ -88,9 +98,9 @@ router.get(
   async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user!.user_id;
-      const orderId = Number(req.params.id);
+      const orderId = parseOrderId(req.params.id);
 
-      if (!Number.isSafeInteger(orderId) || orderId <= 0) {
+      if (orderId === null) {
         return res.status(400).json({
           error: {
             code: "INVALID_ORDER_ID",
@@ -145,7 +155,10 @@ router.get(
       }
 
       return res.status(200).json({
-        order: data
+        order: {
+          ...data,
+          order_id: formatOrderId(data.order_id)
+        }
       });
 
     } catch (error) {
@@ -173,10 +186,10 @@ router.post(
   async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user!.user_id;
-      const orderId = Number(req.params.id);
+      const orderId = parseOrderId(req.params.id);
 
       // 1. ตรวจสอบ Order ID
-      if (!Number.isSafeInteger(orderId) || orderId <= 0) {
+      if (orderId === null) {
         return res.status(400).json({
           error: {
             code: "INVALID_ORDER_ID",
@@ -204,7 +217,7 @@ router.post(
           });
         }
 
-        // Order ถูกยกเลิกไปแล้ว หรือไม่อยู่ในสถานะที่ยกเลิกได้
+        // Order ไม่อยู่ในสถานะที่ยกเลิกได้
         if (error.message.includes("ORDER_CANNOT_BE_CANCELLED")) {
           return res.status(409).json({
             error: {
@@ -262,7 +275,7 @@ router.post(
       return res.status(200).json({
         message: "Order cancelled successfully",
         order: {
-          orderId: order.order_id,
+          orderId: formatOrderId(order.order_id),
           status: order.status,
           cartId: order.cart_id
         }
@@ -293,10 +306,10 @@ router.post(
   async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user!.user_id;
-      const orderId = Number(req.params.id);
+      const orderId = parseOrderId(req.params.id);
 
       // 1. ตรวจสอบ Order ID
-      if (!Number.isSafeInteger(orderId) || orderId <= 0) {
+      if (orderId === null) {
         return res.status(400).json({
           error: {
             code: "INVALID_ORDER_ID",
@@ -359,10 +372,11 @@ router.post(
       }
 
       // 3. ส่งผลลัพธ์กลับ
+      // สมมติว่า pay_success คืนค่า order_id เป็นตัวเลข
       return res.status(200).json({
         message: "Payment successful",
         order: {
-          orderId: data,
+          orderId: formatOrderId(data),
           status: "PAID"
         },
         cart: {
@@ -385,7 +399,6 @@ router.post(
   }
 );
 
-
 // =====================================
 // POST /orders/:id/pay-fail
 // จำลองการชำระเงินไม่สำเร็จ
@@ -398,10 +411,10 @@ router.post(
   async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user!.user_id;
-      const orderId = Number(req.params.id);
+      const orderId = parseOrderId(req.params.id);
 
       // 1. ตรวจสอบ Order ID
-      if (!Number.isSafeInteger(orderId) || orderId <= 0) {
+      if (orderId === null) {
         return res.status(400).json({
           error: {
             code: "INVALID_ORDER_ID",
@@ -482,7 +495,7 @@ router.post(
       return res.status(200).json({
         message: "Payment failed. Please try again.",
         order: {
-          orderId: order.order_id,
+          orderId: formatOrderId(order.order_id),
           status: order.status
         },
         cart: {
@@ -503,6 +516,5 @@ router.post(
     }
   }
 );
-
 
 export default router;
