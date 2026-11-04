@@ -97,14 +97,8 @@ router.get(
         .select("product_id, name, price, weight, stock, status")
         .order("product_id", { ascending: true });
 
-      // Customer เห็นเฉพาะสินค้าที่เปิดขายและมี Stock
-      if (user.role === "customer") {
-        query = query
-          .eq("status", "ON_SALE")
-          .gt("stock", 0);
-      }
-
-      // Admin เห็นสินค้าทั้งหมด
+      // ส่งสินค้าทุกสถานะให้ client เพื่อให้แสดงสถานะที่ซื้อไม่ได้ได้
+      // ส่วนการเพิ่มสินค้าในตะกร้ายังคงตรวจ status และ stock แยกต่างหาก
       const { data: products, error } = await query;
 
       if (error) {
