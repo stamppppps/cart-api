@@ -1,10 +1,10 @@
 
+import "../config/env.js";
 import { Router } from "express";
 import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
 import { supabase } from "../config/supabase.js";
 
-dotenv.config();
+
 
 const router = Router();
 

@@ -1,3 +1,4 @@
+import "../config/env.js";
 
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
@@ -28,7 +29,6 @@ export const authenticateToken = (
 ) => {
   const authHeader = req.headers.authorization;
 
-  // 1. ตรวจสอบว่ามี Authorization Header หรือไม่
   if (!authHeader) {
     return res.status(401).json({
       error: {
@@ -38,7 +38,6 @@ export const authenticateToken = (
     });
   }
 
-  // 2. ตรวจสอบรูปแบบ Bearer Token
   const parts = authHeader.trim().split(/\s+/);
 
   if (
@@ -57,10 +56,8 @@ export const authenticateToken = (
   const token = parts[1];
 
   try {
-    // 3. ตรวจสอบ JWT
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    // 4. ตรวจสอบข้อมูลภายใน Token
     if (
       typeof decoded === "string" ||
       typeof decoded.user_id !== "number" ||
@@ -75,7 +72,6 @@ export const authenticateToken = (
       });
     }
 
-    // 5. เก็บข้อมูล User ไว้ใน Request
     req.user = {
       user_id: decoded.user_id,
       username: decoded.username,
@@ -85,7 +81,6 @@ export const authenticateToken = (
     return next();
 
   } catch (error) {
-    // Token ไม่ถูกต้องหรือหมดอายุ
     return res.status(401).json({
       error: {
         code: "AUTH_REQUIRED",
@@ -107,7 +102,6 @@ export const authorizeRole = (...allowedRoles: string[]) => {
     next: NextFunction
   ) => {
 
-    // 1. ต้องผ่าน Authentication ก่อน
     if (!req.user) {
       return res.status(401).json({
         error: {
@@ -117,7 +111,6 @@ export const authorizeRole = (...allowedRoles: string[]) => {
       });
     }
 
-    // 2. ตรวจสอบ Role
     const userRole = req.user.role.toLowerCase();
 
     const permittedRoles = allowedRoles.map((role) =>
