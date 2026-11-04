@@ -1,8 +1,5 @@
 
-import dotenv from "dotenv";
-
-// โหลด Environment Variables ก่อน Import Routes
-dotenv.config();
+import "./config/env.js";
 
 import express from "express";
 import cors from "cors";
