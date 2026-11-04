@@ -1,6 +1,7 @@
 
 import { Router } from "express";
 import { supabase } from "../config/supabase.js";
+import { formatOrderId } from "../utils/orderId.js";
 
 import {
   authenticateToken,
@@ -17,20 +18,12 @@ import {
   calculateShippingFee,
   calculateNetTotal,
   validateCheckout
-} from "../utils/cartValidation.js";
+} from "../utils/pureFunctions.js";
+
 
 const router = Router();
 
-// แปลง Order ID เป็นรูปแบบ ORD-000001
-function formatOrderId(orderId: number | string): string {
-  const numericId = Number(orderId);
 
-  if (!Number.isSafeInteger(numericId) || numericId <= 0) {
-    throw new Error("INVALID_ORDER_ID");
-  }
-
-  return `ORD-${String(numericId).padStart(6, "0")}`;
-}
 
 // ============================
 // ADD ITEM TO CART
@@ -495,6 +488,16 @@ router.post(
     try {
       const user = (req as any).user;
       const { code } = req.body;
+
+      // ตรวจสอบ Coupon Code
+      if (typeof code !== "string" || code.trim() === "") {
+        return res.status(400).json({
+          error: {
+            code: "COUPON_INVALID",
+            message: "COUPON_INVALID"
+          }
+        });
+      }
 
       // 1. ตรวจสอบ Cart ของ Customer
       const { data: cart, error: cartError } = await supabase
@@ -1010,10 +1013,18 @@ router.post(
 
       const discount = discountResult.discount;
 
-      // 12. จำแนกน้ำหนักสินค้า
-      const weightTier = classifyWeight(totalWeightGram);
+            // 12. จำแนกน้ำหนักสินค้า
+          const weightTier = classifyWeight(totalWeightGram);
 
-      // 13. คำนวณค่าจัดส่ง
+      if (weightTier === "overLimit") {
+        return res.status(400).json({
+          error: {
+            code: "WEIGHT_LIMIT_EXCEEDED",
+            message: "Total cart weight exceeds 20,000 grams"
+          }
+        });
+      }
+
       const shippingFee = calculateShippingFee(
         weightTier,
         zone,
@@ -1176,13 +1187,13 @@ router.post(
 
       // 2. ต้องเป็น SUCCESS เท่านั้น
       if (cart.stage !== "SUCCESS") {
-        return res.status(409).json({
-          error: {
-            code: "CART_NOT_IN_SUCCESS",
-            message: "Cart is not in SUCCESS stage"
-          }
-        });
-      }
+      return res.status(403).json({
+        error: {
+          code: "OPERATION_NOT_ALLOWED",
+          message: "Cannot continue shopping in the current cart stage"
+    }
+  });
+}
 
       // 3. เปลี่ยน Cart กลับเป็น CART
       const { data: updatedCart, error: updateError } = await supabase

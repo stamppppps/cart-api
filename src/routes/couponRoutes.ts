@@ -25,13 +25,13 @@ router.patch(
 
       // ตรวจสอบสถานะที่อนุญาต
       if (!["ACTIVE", "INACTIVE"].includes(status)) {
-        return res.status(400).json({
-          error: {
-            code: "INVALID_COUPON_STATUS",
-            message: "Status must be ACTIVE or INACTIVE"
-          }
-        });
-      }
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Status must be ACTIVE or INACTIVE"
+        }
+      });
+}
 
       // อัปเดตสถานะคูปอง
       const { data: coupon, error } = await supabase
